@@ -5,23 +5,19 @@ import CircularProgress from "@mui/material/CircularProgress";
 import {
   Grid,
   Table,
-  TableGroupRow,
   TableHeaderRow,
 } from "@devexpress/dx-react-grid-material-ui";
 import Paper from "@mui/material/Paper";
-import { GroupingState, IntegratedGrouping } from "@devexpress/dx-react-grid";
-
-// const columns = [
-//   { name: "id", title: "ID" },
-//   { name: "product", title: "Product" },
-//   { name: "owner", title: "Owner" },
-// ];
-// const rows = [
-//   { id: 0, product: "DevExtreme", owner: "DevExpress" },
-//   { id: 1, product: "DevExtreme Reactive", owner: "DevExpress" },
-// ];
+import Alert from "@mui/material/Alert";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import Select, { type SelectChangeEvent } from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import { useState } from "react";
 
 function App() {
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+
   const {
     data: categoriesData,
     isLoading: isCategoriesLoading,
@@ -36,9 +32,14 @@ function App() {
     isLoading: isProductsLoading,
     isError: isProductsError,
   } = useQuery({
-    queryKey: ["products"],
-    queryFn: getProducts,
+    queryKey: ["products", selectedCategory],
+    queryFn: () => getProducts(1, 10, selectedCategory || undefined),
   });
+
+  const handleChange = (event: SelectChangeEvent<string>) => {
+    const value = event.target.value;
+    setSelectedCategory(value);
+  };
 
   const products = productsData?.products || [];
 
@@ -58,27 +59,44 @@ function App() {
     return formattedItem;
   });
 
-  const dynamicColumns = Object.keys(products[0] || {}).map((key) => ({
-    name: key,
-    title: key.charAt(0).toUpperCase() + key.slice(1),
-  }));
+  const dynamicColumns = products[0]
+  ? Object.keys(products[0]).map((key) => ({
+      name: key,
+      title: key.charAt(0).toUpperCase() + key.slice(1),
+    }))
+  : [];
 
   return isCategoriesLoading || isProductsLoading ? (
     <CircularProgress aria-label="Loading…" />
   ) : isCategoriesError || isProductsError ? (
-    <div>Error loading data.</div>
+    <Alert severity="error">Error loading data.</Alert>
   ) : (
     <Paper>
+      <FormControl sx={{ m: 1, minWidth: 120 }}>
+        <InputLabel id="demo-simple-select-label">Category</InputLabel>
+        <Select
+          labelId=  "demo-simple-select-label"
+          id="demo-simple-select"
+          value={selectedCategory}
+          label="Category"
+          autoWidth
+          onChange={handleChange}
+        >
+          {categoriesData?.map((category) => (
+            <MenuItem key={category._id} value={category._id}>
+              {category.name}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+
       <Grid
         rows={formattedRows}
         columns={dynamicColumns}
         getRowId={(row) => row._id}
       >
-        <GroupingState grouping={[{ columnName: "category" }]} />
-        <IntegratedGrouping />
         <Table />
         <TableHeaderRow />
-        <TableGroupRow />
       </Grid>
     </Paper>
   );

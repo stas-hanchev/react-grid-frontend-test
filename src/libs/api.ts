@@ -21,10 +21,10 @@ export const getCategories = async (): Promise<Category[]> => {
   }
 };
 
-export const getProducts = async (page: number, perPage: number, groupBy?: string): Promise<PaginatedProductResponse> => {
+export const getProducts = async (page: number, perPage: number, category?: string): Promise<PaginatedProductResponse> => {
   try {
     const response = await api.get<PaginatedProductResponse>("/products", {
-      params: { perPage, page, groupBy },
+      params: { perPage, page, category },
     });
     console.log(response.data);
     return response.data;
