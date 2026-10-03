@@ -1,104 +1,98 @@
-import { getCategories, getProducts } from "./libs/api";
-import { useQuery } from "@tanstack/react-query";
-
-import CircularProgress from "@mui/material/CircularProgress";
-import {
-  Grid,
-  Table,
-  TableHeaderRow,
-} from "@devexpress/dx-react-grid-material-ui";
-import Paper from "@mui/material/Paper";
-import Alert from "@mui/material/Alert";
-import FormControl from "@mui/material/FormControl";
-import InputLabel from "@mui/material/InputLabel";
-import Select, { type SelectChangeEvent } from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
-import { useState } from "react";
+import { useState } from 'react';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import LinearProgress from '@mui/material/LinearProgress';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
+import CategoryFilter from './components/CategoryFilter';
+import ProductsGrid from './components/ProductsGrid';
+import { useCategories } from './hooks/useCategories';
+import { useProducts } from './hooks/useProducts';
 
 function App() {
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [categoryPath, setCategoryPath] = useState<number[]>([]);
+  const [page, setPage] = useState(0); // 0-based для PagingState
+  const [pageSize, setPageSize] = useState(10);
 
-  const {
-    data: categoriesData,
-    isLoading: isCategoriesLoading,
-    isError: isCategoriesError,
-  } = useQuery({
-    queryKey: ["categories"],
-    queryFn: getCategories,
+  const categoryId = categoryPath.at(-1);
+
+  const categoriesQuery = useCategories();
+  const productsQuery = useProducts({
+    page: page + 1,
+    perPage: pageSize,
+    categoryId,
   });
 
-  const {
-    data: productsData,
-    isLoading: isProductsLoading,
-    isError: isProductsError,
-  } = useQuery({
-    queryKey: ["products", selectedCategory],
-    queryFn: () => getProducts(1, 10, selectedCategory || undefined),
-  });
-
-  const handleChange = (event: SelectChangeEvent<string>) => {
-    const value = event.target.value;
-    setSelectedCategory(value);
+  const handleCategoryChange = (path: number[]) => {
+    setCategoryPath(path);
+    setPage(0);
   };
 
-  const products = productsData?.products || [];
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setPage(0);
+  };
 
-  const formattedRows = products.map((product, index) => {
-    const formattedItem: Record<string, any> = {
-      id: product._id || index,
-    };
+  return (
+    <Box sx={{ p: 2 }}>
+      <Paper sx={{ position: 'relative', overflow: 'hidden' }}>
+        {productsQuery.isFetching && (
+          <LinearProgress
+            sx={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1 }}
+          />
+        )}
 
-    Object.entries(product).forEach(([key, value]) => {
-      if (typeof value === "object" && value !== null) {
-        formattedItem[key] = JSON.stringify(value);
-      } else {
-        formattedItem[key] = value;
-      }
-    });
+        {categoriesQuery.isError && (
+          <Alert
+            severity="error"
+            action={
+              <Button color="inherit" size="small" onClick={() => categoriesQuery.refetch()}>
+                Retry
+              </Button>
+            }
+          >
+            Failed to load categories.
+          </Alert>
+        )}
 
-    return formattedItem;
-  });
+        <CategoryFilter
+          categories={categoriesQuery.data ?? []}
+          value={categoryPath}
+          onChange={handleCategoryChange}
+          disabled={categoriesQuery.isPending}
+        />
 
-  const dynamicColumns = products[0]
-  ? Object.keys(products[0]).map((key) => ({
-      name: key,
-      title: key.charAt(0).toUpperCase() + key.slice(1),
-    }))
-  : [];
-
-  return isCategoriesLoading || isProductsLoading ? (
-    <CircularProgress aria-label="Loading…" />
-  ) : isCategoriesError || isProductsError ? (
-    <Alert severity="error">Error loading data.</Alert>
-  ) : (
-    <Paper>
-      <FormControl sx={{ m: 1, minWidth: 120 }}>
-        <InputLabel id="demo-simple-select-label">Category</InputLabel>
-        <Select
-          labelId=  "demo-simple-select-label"
-          id="demo-simple-select"
-          value={selectedCategory}
-          label="Category"
-          autoWidth
-          onChange={handleChange}
-        >
-          {categoriesData?.map((category) => (
-            <MenuItem key={category._id} value={category._id}>
-              {category.name}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-
-      <Grid
-        rows={formattedRows}
-        columns={dynamicColumns}
-        getRowId={(row) => row._id}
-      >
-        <Table />
-        <TableHeaderRow />
-      </Grid>
-    </Paper>
+        {productsQuery.isError ? (
+          <Alert
+            severity="error"
+            action={
+              <Button color="inherit" size="small" onClick={() => productsQuery.refetch()}>
+                Retry
+              </Button>
+            }
+          >
+            Failed to load products.
+          </Alert>
+        ) : (
+          <>
+            <Typography variant="body2" color="text.secondary" sx={{ px: 2, pb: 1 }}>
+              {productsQuery.data
+                ? `Found: ${productsQuery.data.totalItems}`
+                : 'Loading…'}
+            </Typography>
+            <ProductsGrid
+              rows={productsQuery.data?.products ?? []}
+              totalCount={productsQuery.data?.totalItems ?? 0}
+              currentPage={page}
+              pageSize={pageSize}
+              onCurrentPageChange={setPage}
+              onPageSizeChange={handlePageSizeChange}
+            />
+          </>
+        )}
+      </Paper>
+    </Box>
   );
 }
 

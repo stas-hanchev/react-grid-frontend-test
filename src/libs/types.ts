@@ -51,7 +51,11 @@ export interface Review {
   date: string;
 }
 
-export type ProductStatus = 'active' | 'discontinued' | 'draft';
+export type ProductStatus =
+  | 'active'
+  | 'draft'
+  | 'out_of_stock'
+  | 'discontinued';
 
 export interface Product {
   _id: string;
@@ -68,13 +72,13 @@ export interface Product {
   price: number;
   cost: number;
   discountPercent: number;
-  rating: number;
+  rating: number | null; // null, якщо товар ще не продавався
   reviewsCount: number;
   isFeatured: boolean;
   isBestseller: boolean;
   isTaxable: boolean;
   tags: string[];
-  description: string;
+  description: string | null;
   stock: Stock;
   sales: Sales;
   supplier: Supplier;
@@ -87,6 +91,12 @@ export interface Product {
   lastRestockedAt: string | null;
 }
 
+export interface GetProductsParams {
+  page: number; // 1-based, як на бекенді
+  perPage: number;
+  categoryId?: number;
+}
+
 export interface PaginatedProductResponse {
   page: number;
   perPage: number;
@@ -94,5 +104,3 @@ export interface PaginatedProductResponse {
   totalPages: number;
   products: Product[];
 }
-
-export type ProductsResponse = PaginatedProductResponse;
