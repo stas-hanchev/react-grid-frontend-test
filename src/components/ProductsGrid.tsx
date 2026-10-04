@@ -8,9 +8,11 @@ import {
 } from "@devexpress/dx-react-grid";
 import {
   ColumnChooser,
+  DragDropProvider,
   Grid,
   PagingPanel,
   Table,
+  TableColumnReordering,
   TableColumnResizing,
   TableColumnVisibility,
   TableHeaderRow,
@@ -182,7 +184,25 @@ const ProductsGrid = ({
       />
       <CustomPaging totalCount={totalCount} />
 
+      <DragDropProvider />
       <Table columnExtensions={columnExtensions} />
+      <TableColumnReordering
+        defaultOrder={[
+          "sku",
+          "name",
+          "brand",
+          "category",
+          "subcategory",
+          "categoryLeaf",
+          "status",
+          "price",
+          "discountPercent",
+          "stockQuantity",
+          "rating",
+          "isFeatured",
+          "createdAt",
+        ]}
+      />
 
       <TableColumnResizing defaultColumnWidths={defaultColumnWidths} />
 
@@ -194,7 +214,7 @@ const ProductsGrid = ({
 
       <Toolbar />
       <ColumnChooser />
-      
+
       <PagingPanel pageSizes={PAGE_SIZES} />
     </Grid>
   );
