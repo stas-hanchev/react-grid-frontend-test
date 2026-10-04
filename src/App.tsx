@@ -1,19 +1,28 @@
-import { useState } from 'react';
-import Alert from '@mui/material/Alert';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import LinearProgress from '@mui/material/LinearProgress';
-import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
-import CategoryFilter from './components/CategoryFilter';
-import ProductsGrid from './components/ProductsGrid';
-import { useCategories } from './hooks/useCategories';
-import { useProducts } from './hooks/useProducts';
+import { useState } from "react";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import LinearProgress from "@mui/material/LinearProgress";
+import Paper from "@mui/material/Paper";
+import Typography from "@mui/material/Typography";
+import CategoryFilter from "./components/CategoryFilter";
+import ProductsGrid from "./components/ProductsGrid";
+import { useCategories } from "./hooks/useCategories";
+import { useProducts } from "./hooks/useProducts";
+import {
+  SORTABLE_COLUMNS,
+  toProductSorting,
+  type ProductSorting,
+  serializeSorting,
+} from "./libs/sorting";
 
 function App() {
   const [categoryPath, setCategoryPath] = useState<number[]>([]);
-  const [page, setPage] = useState(0); // 0-based для PagingState
+  const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+  const [sorting, setSorting] = useState<ProductSorting[]>([
+    { columnName: SORTABLE_COLUMNS.price, direction: "desc" },
+  ]);
 
   const categoryId = categoryPath.at(-1);
 
@@ -22,6 +31,7 @@ function App() {
     page: page + 1,
     perPage: pageSize,
     categoryId,
+    sort: serializeSorting(sorting),
   });
 
   const handleCategoryChange = (path: number[]) => {
@@ -34,12 +44,17 @@ function App() {
     setPage(0);
   };
 
+  const handleSortingChange = (next: ProductSorting[]) => {
+    setSorting(toProductSorting(next));
+    setPage(0);
+  };
+
   return (
     <Box sx={{ p: 2 }}>
-      <Paper sx={{ position: 'relative', overflow: 'hidden' }}>
+      <Paper sx={{ position: "relative", overflow: "hidden" }}>
         {productsQuery.isFetching && (
           <LinearProgress
-            sx={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1 }}
+            sx={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 1 }}
           />
         )}
 
@@ -47,7 +62,11 @@ function App() {
           <Alert
             severity="error"
             action={
-              <Button color="inherit" size="small" onClick={() => categoriesQuery.refetch()}>
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => categoriesQuery.refetch()}
+              >
                 Retry
               </Button>
             }
@@ -67,7 +86,11 @@ function App() {
           <Alert
             severity="error"
             action={
-              <Button color="inherit" size="small" onClick={() => productsQuery.refetch()}>
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => productsQuery.refetch()}
+              >
                 Retry
               </Button>
             }
@@ -76,10 +99,14 @@ function App() {
           </Alert>
         ) : (
           <>
-            <Typography variant="body2" color="text.secondary" sx={{ px: 2, pb: 1 }}>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ px: 2, pb: 1 }}
+            >
               {productsQuery.data
                 ? `Found: ${productsQuery.data.totalItems}`
-                : 'Loading…'}
+                : "Loading…"}
             </Typography>
             <ProductsGrid
               rows={productsQuery.data?.products ?? []}
@@ -88,6 +115,8 @@ function App() {
               pageSize={pageSize}
               onCurrentPageChange={setPage}
               onPageSizeChange={handlePageSizeChange}
+              sorting={sorting}
+              onSortingChange={handleSortingChange}
             />
           </>
         )}

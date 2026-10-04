@@ -1,3 +1,5 @@
+import type { SortDirection } from "@mui/material/TableCell/TableCell";
+
 export interface Category {
   _id: string;
   id: number;
@@ -72,7 +74,7 @@ export interface Product {
   price: number;
   cost: number;
   discountPercent: number;
-  rating: number | null; // null, якщо товар ще не продавався
+  rating: number | null;
   reviewsCount: number;
   isFeatured: boolean;
   isBestseller: boolean;
@@ -92,9 +94,10 @@ export interface Product {
 }
 
 export interface GetProductsParams {
-  page: number; // 1-based, як на бекенді
+  page: number;
   perPage: number;
   categoryId?: number;
+  sort?: string;
 }
 
 export interface PaginatedProductResponse {
@@ -103,4 +106,11 @@ export interface PaginatedProductResponse {
   totalItems: number;
   totalPages: number;
   products: Product[];
+}
+
+
+
+export interface Sorting {
+  columnName: string;
+  direction: SortDirection;
 }
