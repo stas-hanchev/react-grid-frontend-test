@@ -11,6 +11,7 @@ import {
   Grid,
   PagingPanel,
   Table,
+  TableColumnResizing,
   TableColumnVisibility,
   TableHeaderRow,
   Toolbar,
@@ -18,6 +19,7 @@ import {
 import Chip from "@mui/material/Chip";
 import type { Product, ProductStatus } from "../libs/types";
 import { toProductSorting, type ProductSorting } from "../libs/sorting";
+import { useState } from "react";
 
 // ---- Data Accessors
 const columns: Column[] = [
@@ -112,7 +114,6 @@ type Props = {
   totalCount: number;
   currentPage: number;
   pageSize: number;
-  defaultHiddenColumnNames?: string[];
   sorting: ProductSorting[];
   onCurrentPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
@@ -124,52 +125,79 @@ const ProductsGrid = ({
   totalCount,
   currentPage,
   pageSize,
-  defaultHiddenColumnNames,
   sorting,
   onCurrentPageChange,
   onPageSizeChange,
   onSortingChange,
-}: Props) => (
-  <Grid rows={rows} columns={columns} getRowId={getRowId}>
-    <DataTypeProvider for={["price"]} formatterComponent={PriceFormatter} />
-    <DataTypeProvider
-      for={["discountPercent"]}
-      formatterComponent={PercentFormatter}
-    />
-    <DataTypeProvider
-      for={["stockQuantity", "rating"]}
-      formatterComponent={NumberFormatter}
-    />
-    <DataTypeProvider
-      for={["isFeatured"]}
-      formatterComponent={BooleanFormatter}
-    />
-    <DataTypeProvider for={["createdAt"]} formatterComponent={DateFormatter} />
-    <DataTypeProvider for={["status"]} formatterComponent={StatusFormatter} />
+}: Props) => {
+  const [defaultHiddenColumnNames] = useState<string[]>(["sku"]);
+  const [defaultColumnWidths] = useState([
+    { columnName: "sku", width: 120 },
+    { columnName: "name", width: 350 },
+    { columnName: "brand", width: 120 },
+    { columnName: "category", width: 200 },
+    { columnName: "subcategory", width: 200 },
+    { columnName: "categoryLeaf", width: 200 },
+    { columnName: "status", width: 120 },
+    { columnName: "price", width: 120 },
+    { columnName: "discountPercent", width: 100 },
+    { columnName: "stockQuantity", width: 100 },
+    { columnName: "rating", width: 100 },
+    { columnName: "isFeatured", width: 100 },
+    { columnName: "createdAt", width: 120 },
+  ]);
 
-    <SortingState
-      sorting={sorting}
-      onSortingChange={(next) => onSortingChange(toProductSorting(next))}
-    />
-    <IntegratedSorting />
+  return (
+    <Grid rows={rows} columns={columns} getRowId={getRowId}>
+      <DataTypeProvider for={["price"]} formatterComponent={PriceFormatter} />
+      <DataTypeProvider
+        for={["discountPercent"]}
+        formatterComponent={PercentFormatter}
+      />
+      <DataTypeProvider
+        for={["stockQuantity", "rating"]}
+        formatterComponent={NumberFormatter}
+      />
+      <DataTypeProvider
+        for={["isFeatured"]}
+        formatterComponent={BooleanFormatter}
+      />
+      <DataTypeProvider
+        for={["createdAt"]}
+        formatterComponent={DateFormatter}
+      />
+      <DataTypeProvider for={["status"]} formatterComponent={StatusFormatter} />
 
-    <PagingState
-      currentPage={currentPage}
-      onCurrentPageChange={onCurrentPageChange}
-      pageSize={pageSize}
-      onPageSizeChange={onPageSizeChange}
-    />
-    <CustomPaging totalCount={totalCount} />
+      <SortingState
+        sorting={sorting}
+        onSortingChange={(next) => onSortingChange(toProductSorting(next))}
+      />
+      <IntegratedSorting />
 
-    <Table columnExtensions={columnExtensions} />
-    <TableHeaderRow showSortingControls />
-    <TableColumnVisibility
-      defaultHiddenColumnNames={defaultHiddenColumnNames}
-    />
-    <Toolbar />
-    <ColumnChooser />
-    <PagingPanel pageSizes={PAGE_SIZES} />
-  </Grid>
-);
+      <PagingState
+        currentPage={currentPage}
+        onCurrentPageChange={onCurrentPageChange}
+        pageSize={pageSize}
+        onPageSizeChange={onPageSizeChange}
+      />
+      <CustomPaging totalCount={totalCount} />
+
+      <Table columnExtensions={columnExtensions} />
+
+      <TableColumnResizing defaultColumnWidths={defaultColumnWidths} />
+
+      <TableHeaderRow showSortingControls />
+
+      <TableColumnVisibility
+        defaultHiddenColumnNames={defaultHiddenColumnNames}
+      />
+
+      <Toolbar />
+      <ColumnChooser />
+      
+      <PagingPanel pageSizes={PAGE_SIZES} />
+    </Grid>
+  );
+};
 
 export default ProductsGrid;
