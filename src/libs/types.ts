@@ -108,8 +108,6 @@ export interface PaginatedProductResponse {
   products: Product[];
 }
 
-
-
 export interface Sorting {
   columnName: string;
   direction: SortDirection;

@@ -21,8 +21,9 @@ function App() {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [sorting, setSorting] = useState<ProductSorting[]>([
-    { columnName: SORTABLE_COLUMNS.price, direction: "desc" },
+    { columnName: SORTABLE_COLUMNS.createdAt, direction: "desc" },
   ]);
+  const [defaultHiddenColumnNames] = useState<string[]>(["sku"]);
 
   const categoryId = categoryPath.at(-1);
 
@@ -117,6 +118,7 @@ function App() {
               onPageSizeChange={handlePageSizeChange}
               sorting={sorting}
               onSortingChange={handleSortingChange}
+              defaultHiddenColumnNames={defaultHiddenColumnNames}
             />
           </>
         )}

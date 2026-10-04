@@ -7,10 +7,13 @@ import {
   type Column,
 } from "@devexpress/dx-react-grid";
 import {
+  ColumnChooser,
   Grid,
   PagingPanel,
   Table,
+  TableColumnVisibility,
   TableHeaderRow,
+  Toolbar,
 } from "@devexpress/dx-react-grid-material-ui";
 import Chip from "@mui/material/Chip";
 import type { Product, ProductStatus } from "../libs/types";
@@ -109,6 +112,7 @@ type Props = {
   totalCount: number;
   currentPage: number;
   pageSize: number;
+  defaultHiddenColumnNames?: string[];
   sorting: ProductSorting[];
   onCurrentPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
@@ -120,6 +124,7 @@ const ProductsGrid = ({
   totalCount,
   currentPage,
   pageSize,
+  defaultHiddenColumnNames,
   sorting,
   onCurrentPageChange,
   onPageSizeChange,
@@ -158,6 +163,11 @@ const ProductsGrid = ({
 
     <Table columnExtensions={columnExtensions} />
     <TableHeaderRow showSortingControls />
+    <TableColumnVisibility
+      defaultHiddenColumnNames={defaultHiddenColumnNames}
+    />
+    <Toolbar />
+    <ColumnChooser />
     <PagingPanel pageSizes={PAGE_SIZES} />
   </Grid>
 );
