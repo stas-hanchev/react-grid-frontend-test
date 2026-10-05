@@ -1,5 +1,3 @@
-import type { SortDirection } from "@mui/material/TableCell/TableCell";
-
 export interface Category {
   _id: string;
   id: number;
@@ -108,7 +106,20 @@ export interface PaginatedProductResponse {
   products: Product[];
 }
 
-export interface Sorting {
-  columnName: string;
-  direction: SortDirection;
+export interface ProductChanges {
+  name?: string;
+  brand?: string;
+  status?: ProductStatus;
+  price?: number;
+  discountPercent?: number;
+  stockQuantity?: number;
+  isFeatured?: boolean;
+  categoryId?: number;
+}
+
+export interface NewProduct extends ProductChanges {
+  name: string;
+  brand: string;
+  price: number;
+  categoryId: number;
 }

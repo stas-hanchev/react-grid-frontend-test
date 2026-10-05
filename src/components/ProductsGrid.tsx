@@ -1,7 +1,8 @@
+import { useMemo, useState } from "react";
 import {
   CustomPaging,
   DataTypeProvider,
-  IntegratedSorting,
+  EditingState,
   PagingState,
   SortingState,
   type Column,
@@ -15,13 +16,31 @@ import {
   TableColumnReordering,
   TableColumnResizing,
   TableColumnVisibility,
+  TableEditColumn,
+  TableEditRow,
   TableHeaderRow,
   Toolbar,
 } from "@devexpress/dx-react-grid-material-ui";
+import Alert from "@mui/material/Alert";
 import Chip from "@mui/material/Chip";
-import type { Product, ProductStatus } from "../libs/types";
-import { toProductSorting, type ProductSorting } from "../libs/sorting";
-import { useState } from "react";
+import Snackbar from "@mui/material/Snackbar";
+import { useProductsEditing } from "../hooks/useProductsEditing";
+import {
+  isSortableColumn,
+  toProductSorting,
+  type ProductSorting,
+} from "../libs/sorting";
+import type { Category, Product, ProductStatus } from "../libs/types";
+import DeleteConfirmDialog from "./DeleteConfirmDialog";
+import {
+  BooleanEditor,
+  LeafCategoryEditor,
+  PercentEditor,
+  PriceEditor,
+  QuantityEditor,
+  StatusEditor,
+} from "./editors";
+import { LeafCategoriesContext } from "./LeafCategoriesContext";
 
 // ---- Data Accessors
 const columns: Column[] = [
@@ -30,14 +49,19 @@ const columns: Column[] = [
   { name: "brand", title: "Brand" },
   { name: "category", title: "Category" },
   { name: "subcategory", title: "Subcategory" },
-  { name: "categoryLeaf", title: "Type" },
+  {
+    name: "categoryId",
+    title: "Type",
+    getCellValue: (row: Product) => row.categoryId,
+  },
   { name: "status", title: "Status" },
   { name: "price", title: "Price" },
   { name: "discountPercent", title: "Discount" },
   {
     name: "stockQuantity",
     title: "In stock",
-    getCellValue: (row: Product) => row.stock?.quantity,
+    getCellValue: (row: Product & { stockQuantity?: number }) =>
+      "stockQuantity" in row ? row.stockQuantity : row.stock?.quantity,
   },
   { name: "rating", title: "Rating" },
   { name: "isFeatured", title: "Featured" },
@@ -51,6 +75,18 @@ const columnExtensions: Table.ColumnExtension[] = [
   { columnName: "rating", align: "right" },
 ];
 
+const sortingColumnExtensions: SortingState.ColumnExtension[] = columns
+  .filter((column) => !isSortableColumn(column.name))
+  .map((column) => ({ columnName: column.name, sortingEnabled: false }));
+
+const editingColumnExtensions: EditingState.ColumnExtension[] = [
+  "sku",
+  "category",
+  "subcategory",
+  "rating",
+  "createdAt",
+].map((columnName) => ({ columnName, editingEnabled: false }));
+
 // ---- Data Formatting
 const dateFormat = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" });
 
@@ -59,10 +95,12 @@ const PriceFormatter = ({
   row,
 }: DataTypeProvider.ValueFormatterProps) => (
   <>
-    {new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: (row as Product | undefined)?.currency ?? "USD",
-    }).format(value)}
+    {value == null
+      ? "-"
+      : new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: (row as Product | undefined)?.currency ?? "USD",
+        }).format(value)}
   </>
 );
 
@@ -85,7 +123,7 @@ const formatDate = (value: unknown): string => {
 };
 
 const DateFormatter = ({ value }: DataTypeProvider.ValueFormatterProps) => (
-  <>{value ? formatDate(value) : "—"}</>
+  <>{value ? formatDate(value) : "-"}</>
 );
 
 const STATUS_COLORS: Record<
@@ -107,12 +145,38 @@ const StatusFormatter = ({ value }: DataTypeProvider.ValueFormatterProps) => (
   />
 );
 
+const LeafFormatter = ({
+  value,
+  row,
+}: DataTypeProvider.ValueFormatterProps) => (
+  <>{(row as Product | undefined)?.categoryLeaf ?? value}</>
+);
+
 const getRowId = (row: Product) => row._id;
 
 const PAGE_SIZES = [10, 20, 50];
 
+const DEFAULT_ORDER = columns.map((column) => column.name);
+
+const DEFAULT_COLUMN_WIDTHS = [
+  { columnName: "sku", width: 120 },
+  { columnName: "name", width: 350 },
+  { columnName: "brand", width: 120 },
+  { columnName: "category", width: 200 },
+  { columnName: "subcategory", width: 200 },
+  { columnName: "categoryId", width: 260 },
+  { columnName: "status", width: 140 },
+  { columnName: "price", width: 120 },
+  { columnName: "discountPercent", width: 100 },
+  { columnName: "stockQuantity", width: 100 },
+  { columnName: "rating", width: 100 },
+  { columnName: "isFeatured", width: 100 },
+  { columnName: "createdAt", width: 120 },
+];
+
 type Props = {
   rows: Product[];
+  categories: Category[];
   totalCount: number;
   currentPage: number;
   pageSize: number;
@@ -124,6 +188,7 @@ type Props = {
 
 const ProductsGrid = ({
   rows,
+  categories,
   totalCount,
   currentPage,
   pageSize,
@@ -133,90 +198,122 @@ const ProductsGrid = ({
   onSortingChange,
 }: Props) => {
   const [defaultHiddenColumnNames] = useState<string[]>(["sku"]);
-  const [defaultColumnWidths] = useState([
-    { columnName: "sku", width: 120 },
-    { columnName: "name", width: 350 },
-    { columnName: "brand", width: 120 },
-    { columnName: "category", width: 200 },
-    { columnName: "subcategory", width: 200 },
-    { columnName: "categoryLeaf", width: 200 },
-    { columnName: "status", width: 120 },
-    { columnName: "price", width: 120 },
-    { columnName: "discountPercent", width: 100 },
-    { columnName: "stockQuantity", width: 100 },
-    { columnName: "rating", width: 100 },
-    { columnName: "isFeatured", width: 100 },
-    { columnName: "createdAt", width: 120 },
-  ]);
+
+  const leafCategories = useMemo(
+    () => categories.filter((category) => category.level === 2),
+    [categories],
+  );
+
+  const editing = useProductsEditing({ rows, currentPage, onCurrentPageChange });
 
   return (
-    <Grid rows={rows} columns={columns} getRowId={getRowId}>
-      <DataTypeProvider for={["price"]} formatterComponent={PriceFormatter} />
-      <DataTypeProvider
-        for={["discountPercent"]}
-        formatterComponent={PercentFormatter}
-      />
-      <DataTypeProvider
-        for={["stockQuantity", "rating"]}
-        formatterComponent={NumberFormatter}
-      />
-      <DataTypeProvider
-        for={["isFeatured"]}
-        formatterComponent={BooleanFormatter}
-      />
-      <DataTypeProvider
-        for={["createdAt"]}
-        formatterComponent={DateFormatter}
-      />
-      <DataTypeProvider for={["status"]} formatterComponent={StatusFormatter} />
+    <LeafCategoriesContext.Provider value={leafCategories}>
+      <Grid rows={rows} columns={columns} getRowId={getRowId}>
+        <DataTypeProvider
+          for={["price"]}
+          formatterComponent={PriceFormatter}
+          editorComponent={PriceEditor}
+        />
+        <DataTypeProvider
+          for={["discountPercent"]}
+          formatterComponent={PercentFormatter}
+          editorComponent={PercentEditor}
+        />
+        <DataTypeProvider
+          for={["stockQuantity"]}
+          formatterComponent={NumberFormatter}
+          editorComponent={QuantityEditor}
+        />
+        <DataTypeProvider for={["rating"]} formatterComponent={NumberFormatter} />
+        <DataTypeProvider
+          for={["isFeatured"]}
+          formatterComponent={BooleanFormatter}
+          editorComponent={BooleanEditor}
+        />
+        <DataTypeProvider
+          for={["createdAt"]}
+          formatterComponent={DateFormatter}
+        />
+        <DataTypeProvider
+          for={["status"]}
+          formatterComponent={StatusFormatter}
+          editorComponent={StatusEditor}
+        />
+        <DataTypeProvider
+          for={["categoryId"]}
+          formatterComponent={LeafFormatter}
+          editorComponent={LeafCategoryEditor}
+        />
 
-      <SortingState
-        sorting={sorting}
-        onSortingChange={(next) => onSortingChange(toProductSorting(next))}
+        <SortingState
+          sorting={sorting}
+          onSortingChange={(next) => onSortingChange(toProductSorting(next))}
+          columnExtensions={sortingColumnExtensions}
+        />
+        <PagingState
+          currentPage={currentPage}
+          onCurrentPageChange={onCurrentPageChange}
+          pageSize={pageSize}
+          onPageSizeChange={onPageSizeChange}
+        />
+        <CustomPaging totalCount={totalCount} />
+
+        <EditingState
+          editingRowIds={editing.editingRowIds}
+          onEditingRowIdsChange={editing.setEditingRowIds}
+          rowChanges={editing.rowChanges}
+          onRowChangesChange={editing.setRowChanges}
+          addedRows={editing.addedRows}
+          onAddedRowsChange={editing.changeAddedRows}
+          onCommitChanges={editing.commitChanges}
+          columnExtensions={editingColumnExtensions}
+        />
+
+        <DragDropProvider />
+        <Table columnExtensions={columnExtensions} />
+        <TableColumnReordering defaultOrder={DEFAULT_ORDER} />
+        <TableColumnResizing defaultColumnWidths={DEFAULT_COLUMN_WIDTHS} />
+
+        <TableHeaderRow showSortingControls />
+
+        <TableEditRow />
+        <TableEditColumn
+          showAddCommand={!editing.addedRows.length}
+          showEditCommand
+          showDeleteCommand
+        />
+
+        <TableColumnVisibility
+          defaultHiddenColumnNames={defaultHiddenColumnNames}
+        />
+
+        <Toolbar />
+        <ColumnChooser />
+
+        <PagingPanel pageSizes={PAGE_SIZES} />
+      </Grid>
+
+      <DeleteConfirmDialog
+        count={editing.pendingDeleteCount}
+        names={editing.pendingDeleteNames}
+        onCancel={editing.cancelDelete}
+        onConfirm={() => void editing.confirmDelete()}
       />
-      <IntegratedSorting />
 
-      <PagingState
-        currentPage={currentPage}
-        onCurrentPageChange={onCurrentPageChange}
-        pageSize={pageSize}
-        onPageSizeChange={onPageSizeChange}
-      />
-      <CustomPaging totalCount={totalCount} />
-
-      <DragDropProvider />
-      <Table columnExtensions={columnExtensions} />
-      <TableColumnReordering
-        defaultOrder={[
-          "sku",
-          "name",
-          "brand",
-          "category",
-          "subcategory",
-          "categoryLeaf",
-          "status",
-          "price",
-          "discountPercent",
-          "stockQuantity",
-          "rating",
-          "isFeatured",
-          "createdAt",
-        ]}
-      />
-
-      <TableColumnResizing defaultColumnWidths={defaultColumnWidths} />
-
-      <TableHeaderRow showSortingControls />
-
-      <TableColumnVisibility
-        defaultHiddenColumnNames={defaultHiddenColumnNames}
-      />
-
-      <Toolbar />
-      <ColumnChooser />
-
-      <PagingPanel pageSizes={PAGE_SIZES} />
-    </Grid>
+      <Snackbar
+        open={editing.notice !== null}
+        autoHideDuration={5000}
+        onClose={editing.closeNotice}
+      >
+        <Alert
+          severity={editing.notice?.severity ?? "success"}
+          onClose={editing.closeNotice}
+          variant="filled"
+        >
+          {editing.notice?.message}
+        </Alert>
+      </Snackbar>
+    </LeafCategoriesContext.Provider>
   );
 };
 
