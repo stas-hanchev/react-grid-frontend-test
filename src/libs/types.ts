@@ -95,6 +95,7 @@ export interface GetProductsParams {
   page: number;
   perPage: number;
   categoryId?: number;
+  search?: string;
   sort?: string;
 }
 

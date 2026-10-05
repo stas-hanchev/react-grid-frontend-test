@@ -9,35 +9,42 @@ import { serializeSorting, SortDirection, SORTABLE_COLUMNS, type ProductSorting 
 import CategoryFilter from './components/CategoryFilter';
 import ProductsGrid from './components/ProductsGrid';
 import { useCategories } from './hooks/useCategories';
+import { useDebouncedSearch } from './hooks/useDebouncedSearch';
 import { useProducts } from './hooks/useProducts';
 
 function App() {
   const [categoryPath, setCategoryPath] = useState<number[]>([]);
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(0); // 0-based для PagingState
   const [pageSize, setPageSize] = useState(10);
   const [sorting, setSorting] = useState<ProductSorting[]>([
     { columnName: SORTABLE_COLUMNS.price, direction: SortDirection.DESC },
   ]);
 
-  // Фільтр — це найглибший обраний вузол; сервер сам розгортає його на нащадків
+  const {
+    input: searchInput,
+    committed: search,
+    change: handleSearchChange,
+  } = useDebouncedSearch(() => setPage(0));
+
   const categoryId = categoryPath.at(-1);
 
   const categoriesQuery = useCategories();
   const productsQuery = useProducts({
-    page: page + 1, // API рахує сторінки з 1
+    page: page + 1,
     perPage: pageSize,
     categoryId,
+    search: search || undefined,
     sort: serializeSorting(sorting),
   });
 
   const handleCategoryChange = (path: number[]) => {
     setCategoryPath(path);
-    setPage(0); // новий фільтр -> повертаємось на першу сторінку
+    setPage(0);
   };
 
   const handleSortingChange = (next: ProductSorting[]) => {
     setSorting(next);
-    setPage(0); // новий порядок -> перша сторінка
+    setPage(0);
   };
 
   const handlePageSizeChange = (size: number) => {
@@ -102,6 +109,8 @@ function App() {
               onPageSizeChange={handlePageSizeChange}
               sorting={sorting}
               onSortingChange={handleSortingChange}
+              search={searchInput}
+              onSearchChange={handleSearchChange}
             />
           </>
         )}

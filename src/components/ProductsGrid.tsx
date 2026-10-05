@@ -4,6 +4,7 @@ import {
   DataTypeProvider,
   EditingState,
   PagingState,
+  SearchState,
   SortingState,
   type Column,
 } from "@devexpress/dx-react-grid";
@@ -12,6 +13,7 @@ import {
   DragDropProvider,
   Grid,
   PagingPanel,
+  SearchPanel,
   Table,
   TableColumnReordering,
   TableColumnResizing,
@@ -116,7 +118,6 @@ const BooleanFormatter = ({ value }: DataTypeProvider.ValueFormatterProps) => (
   <>{value ? "Yes" : "No"}</>
 );
 
-// new Date('x') -> Invalid Date -> RangeError
 const formatDate = (value: unknown): string => {
   const date = new Date(value as string);
   return Number.isNaN(date.getTime()) ? "-" : dateFormat.format(date);
@@ -184,6 +185,8 @@ type Props = {
   onCurrentPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   onSortingChange: (sorting: ProductSorting[]) => void;
+  search: string;
+  onSearchChange: (value: string) => void;
 };
 
 const ProductsGrid = ({
@@ -196,9 +199,12 @@ const ProductsGrid = ({
   onCurrentPageChange,
   onPageSizeChange,
   onSortingChange,
+  search,
+  onSearchChange,
 }: Props) => {
   const [defaultHiddenColumnNames] = useState<string[]>(["sku"]);
 
+  // Товари прив'язані до листків дерева (level 2)
   const leafCategories = useMemo(
     () => categories.filter((category) => category.level === 2),
     [categories],
@@ -250,6 +256,8 @@ const ProductsGrid = ({
           onSortingChange={(next) => onSortingChange(toProductSorting(next))}
           columnExtensions={sortingColumnExtensions}
         />
+
+        <SearchState value={search} onValueChange={onSearchChange} />
         <PagingState
           currentPage={currentPage}
           onCurrentPageChange={onCurrentPageChange}
@@ -288,6 +296,7 @@ const ProductsGrid = ({
         />
 
         <Toolbar />
+        <SearchPanel />
         <ColumnChooser />
 
         <PagingPanel pageSizes={PAGE_SIZES} />
